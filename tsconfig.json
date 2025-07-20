@@ -21,7 +21,6 @@
   },
   "include": [
     "src/**/*.ts",
-    "prisma/**/*.{ts,js}",
-    "prisma/migrate-with-timescale.js",
+    "scripts/**/*.js",
   ]
 }

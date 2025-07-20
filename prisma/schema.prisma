@@ -16,14 +16,30 @@ datasource db {
 
 // User entity for authentication/authorization
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  role      UserRole @default(VIEWER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String       @id @default(cuid())
+  email           String       @unique
+  password_hash   String
+  name            String?
+  role            UserRole     @default(VIEWER)
+  organization_id String // Required field for organization relation
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
 
   @@map("users")
+}
+
+// Organization entity for multi-tenancy
+model Organization {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  plan        String        @default("free")
+  users       User[]
+  Application Application[]
+  created_at  DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+
+  @@map("organizations")
 }
 
 // Application/Service entity
@@ -32,64 +48,59 @@ model Application {
   name        String   @unique
   version     String?
   environment String   @default("development")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  created_at  DateTime @default(now())
+  updated_at   DateTime @updatedAt
 
   // Relations
-  metrics Metric[]
-  traces  Trace[]
+  metrics         Metric[]
+  traces          Trace[]
+  organization_id String?
+  Organization    Organization? @relation(fields: [organization_id], references: [id])
 
   @@map("applications")
 }
 
 // Metric entity - TimescaleDB hypertable for time-series metrics
 model Metric {
-  id            String     @id @default(cuid())
-  name          String
-  value         Float
-  type          MetricType
-  timestamp     DateTime   @default(now())
-  applicationId String
-  labels        Json?
-  description   String?
+  id             String     @default(cuid())
+  timestamp      DateTime   @default(now())
+  name           String
+  value          Float
+  type           MetricType
+  application_id String
+  labels         Json?
+  description    String?
 
-  // Relations
-  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  // TimescaleDB: This table will be converted to a hypertable
-  // Run: SELECT create_hypertable('metrics', 'timestamp');
+  application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
 
-  @@index([timestamp])
-  @@index([name])
-  @@index([applicationId])
-  @@index([type])
+  @@id([id, timestamp]) // ✅ chave primária composta (requer Prisma 4.0+)
   @@map("metrics")
 }
 
 // Trace entity - TimescaleDB hypertable for time-series traces
 model Trace {
-  id            String     @id @default(cuid())
-  traceId       String     @unique
-  spanId        String
-  parentSpanId  String?
-  name          String
-  kind          SpanKind
-  startTime     DateTime
-  endTime       DateTime?
-  duration      Int? // in nanoseconds
-  status        SpanStatus @default(UNSET)
-  applicationId String
-  attributes    Json?
-  events        Json?
+  id             String     @default(cuid())
+  traceId        String
+  spanId         String
+  parent_span_id String?
+  name           String
+  kind           SpanKind
+  start_time      DateTime
+  end_time        DateTime?
+  duration       Int? // in nanoseconds
+  status         SpanStatus @default(UNSET)
+  application_id String
+  attributes     Json?
+  events         Json?
 
   // Relations
-  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  // TimescaleDB: This table will be converted to a hypertable
-  // Run: SELECT create_hypertable('traces', 'startTime');
+  application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
 
+  @@id([id, start_time]) // Composite index for efficient querying
   @@index([traceId])
   @@index([spanId])
-  @@index([applicationId])
-  @@index([startTime])
+  @@index([application_id])
+  @@index([start_time])
   @@index([kind])
   @@map("traces")
 }
