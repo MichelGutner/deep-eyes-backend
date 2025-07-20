@@ -1,0 +1,123 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User entity for authentication/authorization
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Application/Service entity
+model Application {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  version     String?
+  environment String   @default("development")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  metrics Metric[]
+  traces  Trace[]
+
+  @@map("applications")
+}
+
+// Metric entity - TimescaleDB hypertable for time-series metrics
+model Metric {
+  id            String     @id @default(cuid())
+  name          String
+  value         Float
+  type          MetricType
+  timestamp     DateTime   @default(now())
+  applicationId String
+  labels        Json?
+  description   String?
+
+  // Relations
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  // TimescaleDB: This table will be converted to a hypertable
+  // Run: SELECT create_hypertable('metrics', 'timestamp');
+
+  @@index([timestamp])
+  @@index([name])
+  @@index([applicationId])
+  @@index([type])
+  @@map("metrics")
+}
+
+// Trace entity - TimescaleDB hypertable for time-series traces
+model Trace {
+  id            String     @id @default(cuid())
+  traceId       String     @unique
+  spanId        String
+  parentSpanId  String?
+  name          String
+  kind          SpanKind
+  startTime     DateTime
+  endTime       DateTime?
+  duration      Int? // in nanoseconds
+  status        SpanStatus @default(UNSET)
+  applicationId String
+  attributes    Json?
+  events        Json?
+
+  // Relations
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  // TimescaleDB: This table will be converted to a hypertable
+  // Run: SELECT create_hypertable('traces', 'startTime');
+
+  @@index([traceId])
+  @@index([spanId])
+  @@index([applicationId])
+  @@index([startTime])
+  @@index([kind])
+  @@map("traces")
+}
+
+// Enums
+enum MetricType {
+  COUNTER
+  GAUGE
+  HISTOGRAM
+  SUMMARY
+}
+
+enum SpanKind {
+  INTERNAL
+  SERVER
+  CLIENT
+  PRODUCER
+  CONSUMER
+}
+
+enum SpanStatus {
+  UNSET
+  OK
+  ERROR
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  VIEWER
+}

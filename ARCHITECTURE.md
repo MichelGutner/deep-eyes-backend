@@ -345,40 +345,6 @@ export class AlertProcessor {
 
 ```
 deep-eyes-dashboard/
-├── frontend/                          # React Frontend
-│   ├── src/
-│   │   ├── components/                # Componentes React
-│   │   │   ├── AdvancedAnalytics.tsx
-│   │   │   ├── AdvancedLogs.tsx
-│   │   │   ├── AlertSystem.tsx
-│   │   │   ├── AnomalyDetection.tsx
-│   │   │   ├── APMMonitoring.tsx
-│   │   │   ├── AuthSystem.tsx
-│   │   │   ├── CustomMetrics.tsx
-│   │   │   ├── DashboardBuilder.tsx
-│   │   │   ├── DistributedTracing.tsx
-│   │   │   ├── EnhancedSecurity.tsx
-│   │   │   ├── ErrorTab.tsx
-│   │   │   ├── IncidentManagement.tsx
-│   │   │   ├── MachineLearning.tsx
-│   │   │   ├── Performance.tsx
-│   │   │   ├── RealTimeSystem.tsx
-│   │   │   ├── SecuritySystem.tsx
-│   │   │   ├── ServiceMeshMonitoring.tsx
-│   │   │   └── Settings.tsx
-│   │   ├── services/                  # Serviços de API
-│   │   │   ├── apiService.ts
-│   │   │   ├── mlService.ts
-│   │   │   ├── telemetryService.ts    # OpenTelemetry
-│   │   │   └── websocketService.ts
-│   │   ├── hooks/                     # Custom Hooks
-│   │   ├── contexts/                  # React Contexts
-│   │   ├── i18n/                      # Internacionalização
-│   │   └── styles/                    # Estilos globais
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── backend/                           # NestJS Backend
 │   ├── src/
 │   │   ├── modules/                   # Módulos da aplicação
 │   │   │   ├── auth/                  # Autenticação
