@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
-import { LogsModule } from './logs/logs.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { PrismaModule } from './modules';
+import { LogsModule, LogsController } from './modules/logs';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [PrismaModule, LogsModule, MetricsModule],
+  controllers: [LogsController],
+  imports: [ConfigModule.forRoot(), PrismaModule, LogsModule, MetricsModule],
+  providers: [],
 })
 export class AppModule {}

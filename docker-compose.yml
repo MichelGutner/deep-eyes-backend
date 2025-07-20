@@ -1,20 +1,20 @@
 version: '3.8'
 
 services:
-  deep_eyes:
-    build:
-      context: .
-      target: production
-    ports:
-      - "3001:3001"
-    environment:
-      - DATABASE_URL=postgresql://user:pass@postgres:5432/deep_eyes
-      - REDIS_URL=redis://redis:6379
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-    depends_on:
-      - postgres
-      - redis
-      - elasticsearch
+  # deep_eyes:
+  #   build:
+  #     context: .
+  #     target: production
+  #   ports:
+  #     - "3001:3001"
+  #   environment:
+  #     - DATABASE_URL=postgresql://user:pass@postgres:5432/deep_eyes
+  #     - REDIS_URL=redis://redis:6379
+  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #     - elasticsearch
 
   postgres:
     image: timescale/timescaledb:latest-pg14
