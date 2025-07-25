@@ -1,46 +1,40 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20.14.0-alpine as builder
 
-WORKDIR /app
+EXPOSE 3001
+
+# Install Tini for process management
+RUN apk add --no-cache tini curl
+
+WORKDIR /deep-eyes
 
 # Copy package files
-COPY package*.json ./
-COPY yarn.lock ./
+COPY . ./
+COPY src ./src
 
-# Install all dependencies (including dev dependencies for build)
-RUN yarn install
+RUN mkdir deep-eyes && chown -R node:node .
+USER node
 
-# Copy source code
-COPY . .
-
-# Build the application
+RUN yarn
 RUN yarn build
+RUN yarn db:generate
+
+
+ENTRYPOINT [ "/sbin/tini", "--" ]
 
 # Production stage
-FROM node:20-alpine AS production
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY yarn.lock ./
+FROM builder as production
+ENV NODE_ENV=production
 
 # Install only production dependencies
 RUN yarn install --production
 
 # Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
+COPY --chown=node scripts/env.sh ./env.sh
+RUN ["chmod", "+x", "./env.sh" ]
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nestjs -u 1001
+ENV DATABASE_URL=postgresql://user:pass@postgres:5432/deep_eyes
 
-# Change ownership of the app directory
-RUN chown -R nestjs:nodejs /app
-USER nestjs
+RUN npm prune --production
 
-# Expose port
-EXPOSE 3001
-
-# Start the application
-CMD ["node", "dist/main.js"] 
+CMD ["/bin/sh", "-c", "source /deep-eyes/env.sh && node dist/src/main.js && npm run start:prod"] 
