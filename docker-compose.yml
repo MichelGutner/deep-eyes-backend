@@ -42,20 +42,6 @@ services:
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
 
-  otel-collector:
-    image: otel/opentelemetry-collector:latest
-    ports:
-      - '4317:4317' # gRPC
-      - '4318:4318' # HTTP
-      - '8888:8888' # Metrics
-      - '8889:8889' # Prometheus metrics
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
-    command: ['--config', '/etc/otel-collector-config.yaml']
-    depends_on:
-      - elasticsearch
-      - postgres
-
   kafdrop:
     image: obsidiandynamics/kafdrop
     restart: 'no'
@@ -80,8 +66,32 @@ services:
       KAFKA_RESTART_ATTEMPTS: '10'
       KAFKA_RESTART_DELAY: '5'
       ZOOKEEPER_AUTOPURGE_PURGE_INTERVAL: '0'
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "29092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    restart: 'on-failure'
+    ports:
+      - '4317:4317' # gRPC
+      - '4318:4318' # HTTP
+      - '8888:8888' # Metrics
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    command: ['--config', '/etc/otel-collector-config.yaml']
+    depends_on:
+      - kafka
+
 
 volumes:
   postgres_data:
   redis_data:
   elasticsearch_data:
+
+networks:
+  default:
+    name: observability
+    driver: bridge

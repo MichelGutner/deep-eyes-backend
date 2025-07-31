@@ -4,5 +4,19 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true
+  },
+  "projects": {
+    "deep-eyes-backend": {
+      "type": "application",
+      "root": "apps/deep-eyes-backend",
+      "entryFile": "main",
+      "sourceRoot": "apps/deep-eyes-backend/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/deep-eyes-backend/tsconfig.app.json"
+      }
+    }
+  },
+  "hooks": {
+    "prebuild": "node -r ./src/telemetry.js"
   }
 }

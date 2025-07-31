@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { MetricsModule } from './metrics/metrics.module';
 import { PrismaModule } from './modules';
 import { LogsModule } from './modules/logs';
-import { QueueModule } from './modules/queue';
+import { KafkaModule } from './modules/kafka';
+import { TracingModule } from './modules/tracing';
 
 @Module({
   controllers: [],
-  imports: [PrismaModule, LogsModule, MetricsModule, QueueModule],
+  imports: [TracingModule, PrismaModule, LogsModule, KafkaModule],
   providers: [],
 })
 export class AppModule {}

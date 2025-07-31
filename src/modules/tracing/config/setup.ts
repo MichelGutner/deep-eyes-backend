@@ -1,21 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-// src/telemetry.ts
-
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc'; // Or use JaegerExporter
 import { resourceFromAttributes } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-grpc';
 import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 
-// Optionally register diagnostic logger to help load plugin instances:
 diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
-const serviceName = 'nestjs-tracing-example';
+const serviceName = 'deep-eyes-backend';
 
 const otlpEndpoint = process.env.OTLP_ENDPOINT || 'http://localhost:4318';
 
@@ -29,21 +23,59 @@ const metricExporter = new OTLPMetricExporter({
 
 const sdk = new NodeSDK({
   resource: resourceFromAttributes({
-    [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+    [ATTR_SERVICE_NAME]: serviceName,
   }),
   traceExporter: traceExporter,
   metricReader: new PeriodicExportingMetricReader({
     exporter: metricExporter,
   }),
-  instrumentations: [getNodeAutoInstrumentations()],
+  instrumentations: [
+    getNodeAutoInstrumentations({
+      '@opentelemetry/instrumentation-kafkajs': {
+        producerHook: (span, message) => {
+          span.setAttribute('kafkajs.message.topic', message.topic);
+          span.setAttribute(
+            'kafkajs.message.partition',
+            message.message.partition?.toString() || '0',
+          );
+          span.setAttribute(
+            'kafkajs.message.timestamp',
+            message.message.timestamp?.toString() || '',
+          );
+          span.setAttribute(
+            'kafkajs.message.value',
+            message.message.value?.toString() || '',
+          );
+        },
+        consumerHook: (span, message) => {
+          span.setAttribute('kafkajs.message.topic', message.topic);
+        },
+      },
+    }),
+  ],
 });
+
+const reset = '\x1b[0m';
+const blue = '\x1b[34m';
+const green = '\x1b[32m';
+const yellow = '\x1b[33m';
+const red = '\x1b[31m';
 
 export async function initializeTelemetry() {
   try {
-    await sdk.start();
-    console.log('Telemetry initialized');
+    // Verifica se já foi inicializado
+    if (sdk['_started']) {
+      console.log(
+        `${yellow}⚠️  OpenTelemetry já foi inicializado anteriormente.${reset}`,
+      );
+      return;
+    }
+
+    console.log(`${blue}🚀 Iniciando OpenTelemetry...${reset}`);
+    sdk.start();
+    console.log(`${green}✅ OpenTelemetry iniciado com sucesso! 🎉${reset}`);
   } catch (e) {
-    console.error('Error initializing telemetry', e);
+    console.error(`${red}❌ Erro ao iniciar o OpenTelemetry:${reset}`, e);
   }
 }
 
@@ -52,6 +84,6 @@ export async function shutdownTelemetry() {
     await sdk.shutdown();
     console.log('Telemetry shutdown');
   } catch (e) {
-    console.error('Error shutting down telemetry', e);
+    console.error(`${red}❌ Error shutting down telemetry`, e);
   }
 }
