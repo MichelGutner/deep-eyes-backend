@@ -1,9 +1,13 @@
+import { CreateUserDto, USER_SERVICE, UserServiceInterface } from '@/modules/user';
 import { Body, Controller, Inject, Post } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 @Controller('auth')
 export class AuthController {
-  constructor(@Inject(JwtService) private readonly jwtService: JwtService) {}
+  constructor(
+    @Inject(JwtService) private readonly jwtService: JwtService,
+    @Inject(USER_SERVICE) private readonly userService: UserServiceInterface
+  ) {}
 
   @Post('login')
   async login(@Body() body: { username: string; password: string }) {
@@ -25,16 +29,14 @@ export class AuthController {
   }
 
   @Post('signup')
-  async signup(@Body() body: { username: string; password: string }) {
-    // In a real application, you would save the user to the database here
-    const payload = { sub: 1, username: body.username, roles: ['user'] };
+  async signup(@Body() body: CreateUserDto) {
+    const user = await this.userService.create(body);
+    const payload = { sub: user.id, username: user?.name, ...user };
+    const accessToken = this.jwtService.sign(payload);
+
     return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: payload.sub,
-        username: payload.username,
-        roles: payload.roles,
-      },
+      access_token: accessToken,
+      message: 'User created successfully',
     };
   }
 

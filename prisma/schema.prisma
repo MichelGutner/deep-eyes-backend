@@ -33,11 +33,11 @@ model User {
 model Organization {
   id          String        @id @default(cuid())
   name        String        @unique
-  plan        String        @default("free")
+  plan        Plan          @default(FREE_PLAN)
   users       User[]
   Application Application[]
   created_at  DateTime      @default(now())
-  updated_at   DateTime      @updatedAt
+  updated_at  DateTime      @updatedAt
 
   @@map("organizations")
 }
@@ -49,12 +49,12 @@ model Application {
   version     String?
   environment String   @default("development")
   created_at  DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  updated_at  DateTime @updatedAt
 
   // Relations
   metrics         Metric[]
   traces          Trace[]
-  organization_id String?
+  organization_id String
   Organization    Organization? @relation(fields: [organization_id], references: [id])
 
   @@map("applications")
@@ -85,8 +85,8 @@ model Trace {
   parent_span_id String?
   name           String
   kind           SpanKind
-  start_time      DateTime
-  end_time        DateTime?
+  start_time     DateTime
+  end_time       DateTime?
   duration       Int? // in nanoseconds
   status         SpanStatus @default(UNSET)
   application_id String
@@ -128,7 +128,14 @@ enum SpanStatus {
 }
 
 enum UserRole {
-  ADMIN
-  OPERATOR
-  VIEWER
+  OWNER  @map("owner")
+  ADMIN  @map("admin")
+  VIEWER @map("viewer")
+}
+
+enum Plan {
+  FREE_PLAN       @map("free") // Basic plan with limited features
+  PREMIUM_PLAN    @map("premium") // Advanced plan with additional features
+  ENTERPRISE_PLAN @map("enterprise") // Comprehensive plan for large organizations
+  CUSTOM_PLAN     @map("custom") // Tailored plan for specific needs
 }

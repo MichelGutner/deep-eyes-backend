@@ -1,17 +1,18 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from './services/prisma.service';
 
+export const PRISMA_SERVICE = 'PrismaService';
 @Module({
   imports: [],
   providers: [
     {
-      provide: 'PrismaService',
+      provide: PRISMA_SERVICE,
       useClass: PrismaService,
     },
   ],
   exports: [
     {
-      provide: 'PrismaService',
+      provide: PRISMA_SERVICE,
       useClass: PrismaService,
     },
   ],

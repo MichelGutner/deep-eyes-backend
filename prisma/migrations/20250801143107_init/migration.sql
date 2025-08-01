@@ -8,7 +8,10 @@ CREATE TYPE "SpanKind" AS ENUM ('INTERNAL', 'SERVER', 'CLIENT', 'PRODUCER', 'CON
 CREATE TYPE "SpanStatus" AS ENUM ('UNSET', 'OK', 'ERROR');
 
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'OPERATOR', 'VIEWER');
+CREATE TYPE "UserRole" AS ENUM ('owner', 'admin', 'viewer');
+
+-- CreateEnum
+CREATE TYPE "Plan" AS ENUM ('free', 'premium', 'enterprise', 'custom');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -16,7 +19,7 @@ CREATE TABLE "users" (
     "email" TEXT NOT NULL,
     "password_hash" TEXT NOT NULL,
     "name" TEXT,
-    "role" "UserRole" NOT NULL DEFAULT 'VIEWER',
+    "role" "UserRole" NOT NULL DEFAULT 'viewer',
     "organization_id" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -28,7 +31,7 @@ CREATE TABLE "users" (
 CREATE TABLE "organizations" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "plan" TEXT NOT NULL DEFAULT 'free',
+    "plan" "Plan" NOT NULL DEFAULT 'free',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -43,7 +46,7 @@ CREATE TABLE "applications" (
     "environment" TEXT NOT NULL DEFAULT 'development',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "organization_id" TEXT,
+    "organization_id" TEXT NOT NULL,
 
     CONSTRAINT "applications_pkey" PRIMARY KEY ("id")
 );
@@ -109,7 +112,7 @@ CREATE INDEX "traces_kind_idx" ON "traces"("kind");
 ALTER TABLE "users" ADD CONSTRAINT "users_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "applications" ADD CONSTRAINT "applications_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "applications" ADD CONSTRAINT "applications_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "metrics" ADD CONSTRAINT "metrics_application_id_fkey" FOREIGN KEY ("application_id") REFERENCES "applications"("id") ON DELETE CASCADE ON UPDATE CASCADE;

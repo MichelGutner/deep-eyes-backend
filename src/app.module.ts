@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from './modules';
-import { LogsModule } from './modules/logs';
-import { KafkaModule } from './modules/kafka';
-import { TracingModule } from './modules/tracing';
-import { AuthModule } from './modules/auth';
+import {
+  AuthModule,
+  KafkaModule,
+  LogsModule,
+  PrismaModule,
+  TracingModule,
+  UserModule,
+} from './modules';
 import { LoggerModule } from './logger';
 
 @Module({
@@ -15,6 +18,7 @@ import { LoggerModule } from './logger';
     KafkaModule,
     AuthModule,
     LoggerModule,
+    UserModule,
   ],
   providers: [],
 })
