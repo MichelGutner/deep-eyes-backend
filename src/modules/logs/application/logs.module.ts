@@ -19,6 +19,10 @@ const provider: Provider = {
       },
       maxRetries: 5,
       requestTimeout: 60000,
+      redaction: {
+        type: 'replace',
+        additionalKeys: ['password', 'secret'],
+      },
     }),
   ],
   controllers: [LogsController],
