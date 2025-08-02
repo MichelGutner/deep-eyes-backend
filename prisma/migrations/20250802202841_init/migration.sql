@@ -15,7 +15,7 @@ CREATE TYPE "Plan" AS ENUM ('free', 'premium', 'enterprise', 'custom');
 
 -- CreateTable
 CREATE TABLE "users" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
     "email" TEXT NOT NULL,
     "password_hash" TEXT NOT NULL,
     "name" TEXT,

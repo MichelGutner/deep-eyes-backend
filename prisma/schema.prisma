@@ -16,12 +16,12 @@ datasource db {
 
 // User entity for authentication/authorization
 model User {
-  id              String       @id @default(cuid())
+  id              Int          @id @default(autoincrement()) // Changed to incremental ID
   email           String       @unique
   password_hash   String
   name            String?
   role            UserRole     @default(VIEWER)
-  organization_id String // Required field for organization relation
+  organization_id String       // Required field for organization relation
   organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   created_at      DateTime     @default(now())
   updated_at      DateTime     @updatedAt
@@ -31,7 +31,7 @@ model User {
 
 // Organization entity for multi-tenancy
 model Organization {
-  id          String        @id @default(cuid())
+  id          String        @id @default(uuid())
   name        String        @unique
   plan        Plan          @default(FREE_PLAN)
   users       User[]
@@ -44,7 +44,7 @@ model Organization {
 
 // Application/Service entity
 model Application {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   name        String   @unique
   version     String?
   environment String   @default("development")
@@ -62,7 +62,7 @@ model Application {
 
 // Metric entity - TimescaleDB hypertable for time-series metrics
 model Metric {
-  id             String     @default(cuid())
+  id             String     @default(uuid())
   timestamp      DateTime   @default(now())
   name           String
   value          Float
@@ -79,7 +79,7 @@ model Metric {
 
 // Trace entity - TimescaleDB hypertable for time-series traces
 model Trace {
-  id             String     @default(cuid())
+  id             String     @default(uuid())
   traceId        String
   spanId         String
   parent_span_id String?

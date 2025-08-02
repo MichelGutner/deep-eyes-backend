@@ -1,4 +1,8 @@
-import { CreateUserDto, USER_SERVICE, UserServiceInterface } from '@/modules/user';
+import {
+  CreateUserDto,
+  USER_SERVICE,
+  UserServiceInterface,
+} from '@/modules/user';
 import { Body, Controller, Inject, Post } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
@@ -6,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 export class AuthController {
   constructor(
     @Inject(JwtService) private readonly jwtService: JwtService,
-    @Inject(USER_SERVICE) private readonly userService: UserServiceInterface
+    @Inject(USER_SERVICE) private readonly userService: UserServiceInterface,
   ) {}
 
   @Post('login')
@@ -28,16 +32,27 @@ export class AuthController {
     };
   }
 
-  @Post('signup')
-  async signup(@Body() body: CreateUserDto) {
-    const user = await this.userService.create(body);
-    const payload = { sub: user.id, username: user?.name, ...user };
-    const accessToken = this.jwtService.sign(payload);
+  @Post('user')
+  async createUser(@Body() body: CreateUserDto) {
+    try {
+      const user = await this.userService.create(body);
+      const payload = { sub: user.id, username: user?.name, ...user };
+      const accessToken = this.jwtService.sign(payload);
 
-    return {
-      access_token: accessToken,
-      message: 'User created successfully',
-    };
+      return {
+        access_token: accessToken,
+        message: 'User created successfully',
+        user: {
+          id: user.id,
+          username: user.name,
+        },
+      };
+    } catch (error) {
+      return {
+        error: 'User creation failed',
+        message: error.message,
+      };
+    }
   }
 
   @Post('verify')

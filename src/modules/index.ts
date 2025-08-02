@@ -4,3 +4,4 @@ export * from './logs';
 export * from './kafka';
 export * from './tracing';
 export * from './auth';
+export * from './organization';

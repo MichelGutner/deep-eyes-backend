@@ -6,6 +6,7 @@ import {
   PrismaModule,
   TracingModule,
   UserModule,
+  OrganizationModule
 } from './modules';
 import { LoggerModule } from './logger';
 
@@ -19,6 +20,7 @@ import { LoggerModule } from './logger';
     AuthModule,
     LoggerModule,
     UserModule,
+    OrganizationModule,
   ],
   providers: [],
 })
