@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   NotFoundException,
@@ -27,14 +29,10 @@ export class OrganizationService implements OrganizationServiceInterface {
   }
 
   async get(id: string) {
-    try {
-      const organization = await this.orgRepository.findById(id);
-      if (!organization) {
-        throw new NotFoundException('Organization not found.');
-      }
-      return organization;
-    } catch (error) {
+    const organization = await this.orgRepository.findById(id);
+    if (!organization) {
       throw new NotFoundException('Organization not found.');
     }
+    return organization;
   }
 }

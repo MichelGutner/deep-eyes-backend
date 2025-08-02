@@ -35,7 +35,7 @@ model Organization {
   name        String        @unique
   plan        Plan          @default(FREE_PLAN)
   users       User[]
-  Application Application[]
+  applications Application[]
   created_at  DateTime      @default(now())
   updated_at  DateTime      @updatedAt
 

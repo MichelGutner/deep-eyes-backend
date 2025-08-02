@@ -48,10 +48,7 @@ export class AuthController {
         },
       };
     } catch (error) {
-      return {
-        error: 'User creation failed',
-        message: error.message,
-      };
+      throw new Error(`User creation failed: ${error.message}`);
     }
   }
 
