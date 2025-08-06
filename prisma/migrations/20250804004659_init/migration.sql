@@ -11,6 +11,9 @@ CREATE TYPE "SpanStatus" AS ENUM ('UNSET', 'OK', 'ERROR');
 CREATE TYPE "UserRole" AS ENUM ('owner', 'admin', 'viewer');
 
 -- CreateEnum
+CREATE TYPE "UserStatus" AS ENUM ('active', 'inactive');
+
+-- CreateEnum
 CREATE TYPE "Plan" AS ENUM ('free', 'premium', 'enterprise', 'custom');
 
 -- CreateTable
@@ -20,6 +23,8 @@ CREATE TABLE "users" (
     "password_hash" TEXT NOT NULL,
     "name" TEXT,
     "role" "UserRole" NOT NULL DEFAULT 'viewer',
+    "lastActive" TIMESTAMP(3),
+    "status" "UserStatus" NOT NULL DEFAULT 'active',
     "organization_id" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,

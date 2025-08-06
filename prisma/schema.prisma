@@ -21,7 +21,9 @@ model User {
   password_hash   String
   name            String?
   role            UserRole     @default(VIEWER)
-  organization_id String       // Required field for organization relation
+  lastActive      DateTime?
+  status          UserStatus   @default(ACTIVE)
+  organization_id String // Required field for organization relation
   organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   created_at      DateTime     @default(now())
   updated_at      DateTime     @updatedAt
@@ -31,13 +33,13 @@ model User {
 
 // Organization entity for multi-tenancy
 model Organization {
-  id          String        @id @default(uuid())
-  name        String        @unique
-  plan        Plan          @default(FREE_PLAN)
-  users       User[]
+  id           String        @id @default(uuid())
+  name         String        @unique
+  plan         Plan          @default(FREE_PLAN)
+  users        User[]
   applications Application[]
-  created_at  DateTime      @default(now())
-  updated_at  DateTime      @updatedAt
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
 
   @@map("organizations")
 }
@@ -131,6 +133,11 @@ enum UserRole {
   OWNER  @map("owner")
   ADMIN  @map("admin")
   VIEWER @map("viewer")
+}
+
+enum UserStatus {
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
 }
 
 enum Plan {

@@ -7,12 +7,19 @@ export class UserRepositoryImpl implements UserRepository {
   constructor(
     @Inject(PRISMA_SERVICE) private readonly ormService: PrismaService,
   ) {}
-  async findByEmail(email: string): Promise<TUserResponse | null> {
+  async findByEmail(
+    email: string,
+    options?: {
+      omit?: {
+        password_hash?: boolean;
+      };
+    },
+  ): Promise<TUserResponse | null> {
     return this.ormService.user.findUnique({
       where: { email },
-      include: { organization: true },
-      omit: {
-        password_hash: true,
+      ...options,
+      include: {
+        organization: true,
       },
     });
   }
