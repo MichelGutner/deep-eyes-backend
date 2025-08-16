@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { TracingServiceInterface } from './interfaces/tracing.interface';
-import { Request } from 'express';
-import { LogContract } from '@/modules/logs/domain';
-import { v4 as uuid } from 'uuid';
+import { LogEntity } from '@/modules/shared/telemetry/domain';
 
 @Injectable()
 export class TracingService implements TracingServiceInterface {
@@ -191,67 +189,22 @@ export class TracingService implements TracingServiceInterface {
     });
   }
 
-  async traceHttpRequestLog(
-    request: Request,
-    log: LogContract,
-  ): Promise<LogContract | undefined> {
-    const start = process.hrtime.bigint();
-    const spanName = `http.request.${request.method.toUpperCase()} ${request.path}`;
+  async addTraceInfoToLog(log: LogEntity): Promise<LogEntity> {
+    const spanName = `http.request.${log.level.toLowerCase()}`;
     return await this.tracer.startActiveSpan(spanName, async (span) => {
-      const end = process.hrtime.bigint();
-      const durationInNs = Number(end - start) / 1_000_000;
-
       const currentSpan = trace.getActiveSpan();
+
       if (currentSpan) {
         const spanContext = currentSpan.spanContext();
-
         log.trace = {
           traceId: spanContext.traceId,
           spanId: spanContext.spanId,
           traceFlags: spanContext.traceFlags,
         };
-
-        log.host = {
-          name: request.hostname || 'unknown',
-          path: request.path || 'unknown',
-          ip: request.ip || this.getClientIp(request),
-          pid: request.app?.get('pid'),
-        };
-
-        log.method = request.method;
-
-        log.context = {
-          requestId: uuid(),
-          correlationId: spanContext.traceId,
-          url: request.url,
-          userAgent: request.get('user-agent') || '',
-        };
-
-        log.responseTime = +durationInNs.toFixed(2);
-
-        const requestProperties = {
-          'http.request.method': request.method,
-          'http.request.url': request.url,
-          'http.request.host': request.host,
-          'http.request.hostname': request.hostname,
-          'http.request.user_agent': request.get('user-agent') || '',
-          'http.request.ip': this.getClientIp(request),
-          'log.type': log.type,
-          'log.severity': log.severityText,
-          'log.message': log.message,
-          'log.service.name': log.service.name,
-          'log.service.version': log.service.version,
-          'log.timestamp': log.timestamp,
-          'log.request_id': log.context?.requestId,
-          'log.status_code': log.statusCode,
-        };
-
-        currentSpan.setAttributes(requestProperties);
       }
 
       try {
         span.setStatus({ code: SpanStatusCode.OK });
-        return log;
       } catch (error) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
@@ -259,20 +212,8 @@ export class TracingService implements TracingServiceInterface {
         });
       } finally {
         span.end();
+        return log;
       }
     });
-  }
-
-  private getClientIp(request: Request): string {
-    if (request.headers?.['x-forwarded-for']) {
-      return (request.headers?.['x-forwarded-for'] as string).split(',')[0];
-    }
-    if (request.headers?.['x-real-ip']) {
-      return request.headers['x-real-ip'] as string;
-    }
-    if (request.socket?.remoteAddress) {
-      return request.socket.remoteAddress;
-    }
-    return 'unknown';
   }
 }

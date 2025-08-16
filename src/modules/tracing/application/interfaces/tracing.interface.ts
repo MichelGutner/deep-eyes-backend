@@ -1,5 +1,4 @@
-import { LogContract } from '@/modules/logs/domain';
-import { Request } from 'express';
+import { LogEntity } from "@/modules/shared/telemetry/domain";
 
 export type TracingServiceInterface = {
   createBusinessSpan: <T>(
@@ -25,8 +24,5 @@ export type TracingServiceInterface = {
     operation: () => Promise<T>,
     attributes?: Record<string, any>,
   ) => Promise<T>;
-  traceHttpRequestLog: (
-    request: Request,
-    log: LogContract,
-  ) => Promise<LogContract | undefined>;
+  addTraceInfoToLog: (log: LogEntity) => Promise<LogEntity>;
 };

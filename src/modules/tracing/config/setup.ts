@@ -6,6 +6,7 @@ import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
 
 diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
@@ -16,6 +17,7 @@ const otlpEndpoint = process.env.OTLP_ENDPOINT || 'http://localhost:4318';
 const traceExporter = new OTLPTraceExporter({
   url: `${otlpEndpoint}/v1/traces`,
 });
+// const traceExporter = new ConsoleSpanExporter();
 
 const metricExporter = new OTLPMetricExporter({
   url: `${otlpEndpoint}/v1/metrics`,
