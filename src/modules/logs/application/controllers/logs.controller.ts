@@ -8,6 +8,8 @@ import {
   Param,
   Req,
   Inject,
+  Res,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { LogsService } from '../services/logs.service';
@@ -16,11 +18,13 @@ import {
   Ctx,
   EventPattern,
   KafkaContext,
+  MessagePattern,
   Payload,
 } from '@nestjs/microservices';
-import { LogApplicationInputDto } from '../dtos';
+import { LogInputDto } from '../dtos';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
-import { LogContract } from '../../domain';
+import { LogEntity } from '@/modules/shared/telemetry/domain';
+import { MaxRetriesExceededError } from '@/modules/resilience/application/services/retry-police.service';
 
 @Controller('logs')
 export class LogsController {
@@ -30,9 +34,9 @@ export class LogsController {
     private readonly elasticsearchService: ElasticsearchService,
   ) {}
 
-  @EventPattern(process.env.KAFKA_LOGS_TOPIC || 'logs')
+  @MessagePattern(process.env.KAFKA_TOPIC || 'logs')
   async handleKafkaLogEvent(
-    @Payload() data: LogContract,
+    @Payload() data: LogEntity,
     @Ctx() context: KafkaContext,
   ): Promise<void> {
     try {
@@ -40,30 +44,32 @@ export class LogsController {
       const message = context.getMessage();
       const key = message.key?.toString();
       const body = message.value;
+      // console.log('🚀 ~ LogsController ~ handleKafkaLogEvent ~ body:', body);
+      
 
-      const existsInElasticsearch = await this.elasticsearchService.exists({
-        index: `${topic}-${key}`,
-        id: `${data.context?.requestId}-${data.trace?.traceId}`,
-      });
+      // const existsInElasticsearch = await this.elasticsearchService.exists({
+      //   index: `${topic}-${key}`,
+      //   id: `${data.request?.requestId}-${data.trace?.traceId}`,
+      // });
 
-      if (!existsInElasticsearch && body) {
-        try {
-          await this.elasticsearchService.create({
-            index: `${topic}-${key}`,
-            id: `${data.context?.requestId}-${data.trace?.traceId}`,
-            body,
-          });
-        } catch (error) {
-          console.error('❌ Failed to create log in Elasticsearch:', error);
-          return;
-        }
-      } else {
-        await this.elasticsearchService.index({
-          index: `${topic}-${key}`,
-          id: `${data.context?.requestId}-${data.trace?.traceId}`,
-          body,
-        });
-      }
+      // if (!existsInElasticsearch && body) {
+      //   try {
+      //     await this.elasticsearchService.create({
+      //       index: `${topic}-${key}`,
+      //       id: `${data.request?.requestId}-${data.trace?.traceId}`,
+      //       body,
+      //     });
+      //   } catch (error) {
+      //     console.error('❌ Failed to create log in Elasticsearch:', error);
+      //     return;
+      //   }
+      // } else {
+      //   await this.elasticsearchService.index({
+      //     index: `${topic}-${key}`,
+      //     id: `${data.request?.requestId}-${data.trace?.traceId}`,
+      //     body,
+      //   });
+      // }
     } catch (error) {
       console.error('❌ Failed to index log to Elasticsearch:', error);
     }
@@ -71,47 +77,21 @@ export class LogsController {
 
   @Post('application')
   async createApplicationLog(
-    @Req() request: Request,
     @Body()
-    body: LogApplicationInputDto,
+    body: LogInputDto,
+    @Req() req: Request,
   ) {
     try {
-      await this.logsService.logApplication(body, request);
-      return { status: 'success', message: 'Application log created' };
+      return await this.logsService.enqueueLog(body, req);
     } catch (error) {
-      return { status: 'error', message: error.message };
+      if (error instanceof MaxRetriesExceededError) {
+        throw new ServiceUnavailableException(
+          'Logging service temporarily unavailable. Please try again later.',
+        );
+      }
+      throw new Error(`Failed to create application log: ${error.message}`);
     }
   }
-
-  // @Post('error')
-  // async createErrorLog(
-  //   @Body()
-  //   body: {
-  //     error: {
-  //       name: string;
-  //       message: string;
-  //       stack?: string;
-  //     };
-  //     context: {
-  //       requestId: string;
-  //       userId?: string;
-  //       sessionId?: string;
-  //       correlationId?: string;
-  //       url?: string;
-  //       method?: string;
-  //       userAgent?: string;
-  //       ip?: string;
-  //     };
-  //     attributes?: Record<string, any>;
-  //   },
-  // ) {
-  //   const error = new Error(body.error.message);
-  //   error.name = body.error.name;
-  //   error.stack = body.error.stack;
-
-  //   await this.logsService.logError(error, body.context, body.attributes || {});
-  //   return { status: 'success', message: 'Error log created' };
-  // }
 
   // @Post('performance')
   // async createPerformanceLog(
@@ -279,39 +259,39 @@ export class LogsController {
     }
   }
 
-  @Get('error')
-  async searchErrorLogs(
-    @Query('query') query?: string,
-    @Query('size') size?: number,
-  ) {
-    const searchQuery = query
-      ? {
-          multi_match: {
-            query,
-            fields: ['message', 'error.message', 'error.stack'],
-          },
-        }
-      : {};
+  // @Get('error')
+  // async searchErrorLogs(
+  //   @Query('query') query?: string,
+  //   @Query('size') size?: number,
+  // ) {
+  //   const searchQuery = query
+  //     ? {
+  //         multi_match: {
+  //           query,
+  //           fields: ['message', 'error.message', 'error.stack'],
+  //         },
+  //       }
+  //     : {};
 
-    return this.logsService.searchErrorLogs(searchQuery, size || 100);
-  }
+  //   return this.logsService.searchErrorLogs(searchQuery, size || 100);
+  // }
 
-  @Get('performance')
-  async searchPerformanceLogs(
-    @Query('query') query?: string,
-    @Query('size') size?: number,
-  ) {
-    const searchQuery = query
-      ? {
-          multi_match: {
-            query,
-            fields: ['message', 'operation', 'component'],
-          },
-        }
-      : {};
+  // @Get('performance')
+  // async searchPerformanceLogs(
+  //   @Query('query') query?: string,
+  //   @Query('size') size?: number,
+  // ) {
+  //   const searchQuery = query
+  //     ? {
+  //         multi_match: {
+  //           query,
+  //           fields: ['message', 'operation', 'component'],
+  //         },
+  //       }
+  //     : {};
 
-    return this.logsService.searchPerformanceLogs(searchQuery, size || 100);
-  }
+  //   return this.logsService.searchPerformanceLogs(searchQuery, size || 100);
+  // }
 
   // @Get('audit')
   // async searchAuditLogs(

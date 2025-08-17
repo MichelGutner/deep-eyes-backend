@@ -2,6 +2,7 @@ import { Global, Module, Provider } from '@nestjs/common';
 import { LogsService } from './services/logs.service';
 import { LogsController } from './controllers/logs.controller';
 import { ElasticsearchModule } from '@nestjs/elasticsearch';
+import { LogsProcessorService } from './services/logs-processor.service';
 
 const provider: Provider = {
   provide: 'LogsService',
@@ -26,7 +27,7 @@ const provider: Provider = {
     }),
   ],
   controllers: [LogsController],
-  providers: [provider],
+  providers: [provider, LogsProcessorService],
   exports: [provider],
 })
 export class LogsModule {}
