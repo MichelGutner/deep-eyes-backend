@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { kafkaConfig } from './modules/kafka/kafka.config';
+import { TelemetryInterceptor } from './interceptors/telemetry.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,6 +12,7 @@ async function bootstrap() {
     origin: '*', // or '*' to allow all (not recommended in production)
   });
 
+  app.useGlobalInterceptors(new TelemetryInterceptor());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   // Start Kafka microservice for consumers
@@ -19,11 +20,13 @@ async function bootstrap() {
     transport: Transport.KAFKA,
     options: {
       client: {
-        brokers: kafkaConfig.brokers,
-        clientId: kafkaConfig.clientId,
+        brokers: process.env.KAFKA_BROKERS
+          ? process.env.KAFKA_BROKERS.split(',')
+          : ['localhost:9092'],
+        clientId: process.env.KAFKA_CLIENT_ID || 'default-client-id',
       },
       consumer: {
-        groupId: kafkaConfig.groupId,
+        groupId: process.env.KAFKA_GROUP_ID || 'default-group-id',
       },
     },
   });

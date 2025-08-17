@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { TracingServiceInterface } from './interfaces/tracing.interface';
-import { LogEntity } from '@/modules/shared/telemetry/domain';
+import { LogEntity } from '@/modules/logs/domain';
 
 @Injectable()
 export class TracingService implements TracingServiceInterface {
@@ -190,7 +190,7 @@ export class TracingService implements TracingServiceInterface {
   }
 
   async addTraceInfoToLog(log: LogEntity): Promise<LogEntity> {
-    const spanName = `http.request.${log.level.toLowerCase()}`;
+    const spanName = `http.request.${log.level?.toLowerCase()}`;
     return await this.tracer.startActiveSpan(spanName, async (span) => {
       const currentSpan = trace.getActiveSpan();
 

@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { LogProcessorInterface } from './interfaces/log-processor.interface';
-import { LogEntity } from '@/modules/shared/telemetry/domain';
 import { BatchProcessor, BatchConfig } from './batch-processor.service';
 import { CircularBuffer } from './circular-buffer.service';
 import { Inject } from '@nestjs/common';
 import { ResilienceInterface } from '@/modules/resilience';
 import { TelemetryManager } from '@/modules/shared/telemetry/manager';
+import { LogEntity } from '../../domain';
 
 @Injectable()
 export class LogsProcessorService implements LogProcessorInterface {

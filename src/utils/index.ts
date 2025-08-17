@@ -1,1 +1,1 @@
-export * from './serialization-object';
+export * from './bcrypt'

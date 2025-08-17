@@ -1,4 +1,4 @@
-import { LogEntity } from '@/modules/shared/telemetry/domain';
+import { LogEntity } from "@/modules/logs/domain";
 
 export type LogProcessorInterface = {
   enqueueLog: (log: LogEntity) => void;

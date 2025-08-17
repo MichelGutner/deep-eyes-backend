@@ -4,9 +4,9 @@ import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { LogInputDto } from '../dtos';
 import { TracingServiceInterface } from '@/modules/tracing';
-import { LogEntity } from '@/modules/shared/telemetry/domain';
 import { Request } from 'express';
 import { LogsProcessorService } from './logs-processor.service';
+import { LogEntity } from '../../domain';
 
 @Injectable()
 export class LogsService {

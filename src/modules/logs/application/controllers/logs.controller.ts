@@ -23,8 +23,8 @@ import {
 } from '@nestjs/microservices';
 import { LogInputDto } from '../dtos';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
-import { LogEntity } from '@/modules/shared/telemetry/domain';
 import { MaxRetriesExceededError } from '@/modules/resilience/application/services/retry-police.service';
+import { LogEntity } from '../../domain';
 
 @Controller('logs')
 export class LogsController {
@@ -44,7 +44,7 @@ export class LogsController {
       const message = context.getMessage();
       const key = message.key?.toString();
       const body = message.value;
-      // console.log('🚀 ~ LogsController ~ handleKafkaLogEvent ~ body:', body);
+      console.log('🚀 ~ LogsController ~ handleKafkaLogEvent ~ body:', body);
       
 
       // const existsInElasticsearch = await this.elasticsearchService.exists({

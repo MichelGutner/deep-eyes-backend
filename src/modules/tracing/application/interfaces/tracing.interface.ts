@@ -1,4 +1,6 @@
-import { LogEntity } from "@/modules/shared/telemetry/domain";
+import { LogEntity } from "@/modules/logs/domain";
+import { ILog } from "@/modules/logs/domain/log.interface";
+
 
 export type TracingServiceInterface = {
   createBusinessSpan: <T>(
@@ -24,5 +26,5 @@ export type TracingServiceInterface = {
     operation: () => Promise<T>,
     attributes?: Record<string, any>,
   ) => Promise<T>;
-  addTraceInfoToLog: (log: LogEntity) => Promise<LogEntity>;
+  addTraceInfoToLog: (log: ILog) => Promise<LogEntity>;
 };

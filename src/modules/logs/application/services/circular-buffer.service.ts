@@ -1,5 +1,5 @@
-import { ILog } from "@/modules/shared/telemetry/domain/log.interface";
 import { LogLevel } from "@/types/logs";
+import { ILog } from "../../domain/log.interface";
 
 export interface SamplingConfig {
   enabled: boolean;
