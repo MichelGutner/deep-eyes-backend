@@ -5,3 +5,4 @@ export * from './tracing';
 export * from './auth';
 export * from './organization';
 export * from './resilience';
+export * from './elasticsearch';

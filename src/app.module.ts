@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import {
   AuthModule,
   LogsModule,
@@ -6,7 +6,8 @@ import {
   TracingModule,
   UserModule,
   OrganizationModule,
-  ResilienceModule
+  ResilienceModule,
+  ElasticsearchModule,
 } from './modules';
 import { LoggerModule } from './logger';
 import { TelemetryModule } from './modules/shared';
@@ -14,11 +15,12 @@ import { TelemetryModule } from './modules/shared';
 @Module({
   controllers: [],
   imports: [
-    TracingModule,
     PrismaModule,
+    ElasticsearchModule,
+    TracingModule,
     LogsModule,
     AuthModule,
-    // LoggerModule,
+    LoggerModule,
     UserModule,
     OrganizationModule,
     ResilienceModule,

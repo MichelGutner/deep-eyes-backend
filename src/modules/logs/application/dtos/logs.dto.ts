@@ -17,10 +17,6 @@ class UserDto {
 
   @IsOptional()
   @IsString()
-  name?: string;
-
-  @IsOptional()
-  @IsString()
   ip?: string;
 
   @IsOptional()
@@ -45,22 +41,6 @@ class ErrorDto {
   @IsOptional()
   @IsString()
   cause?: string;
-
-  @IsOptional()
-  @IsString()
-  fingerprint?: string;
-
-  @IsOptional()
-  @IsString()
-  class?: string;
-
-  @IsOptional()
-  @IsNumber()
-  statusCode?: number;
-
-  @IsOptional()
-  @IsString()
-  statusText?: string;
 }
 
 export class LogInputDto {

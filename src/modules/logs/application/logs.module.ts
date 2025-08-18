@@ -1,33 +1,22 @@
 import { Global, Module, Provider } from '@nestjs/common';
 import { LogsService } from './services/logs.service';
 import { LogsController } from './controllers/logs.controller';
-import { ElasticsearchModule } from '@nestjs/elasticsearch';
 import { LogsProcessorService } from './services/logs-processor.service';
+import { LogsConsumerController } from './controllers/logs-consumer.controller';
+import { ElasticsearchModule, ESService } from '@/modules/elasticsearch';
 
-const provider: Provider = {
-  provide: 'LogsService',
-  useClass: LogsService,
-};
+const providers: Provider[] = [
+  {
+    provide: 'LogsService',
+    useClass: LogsService,
+  },
+  LogsProcessorService,
+];
 
-@Global()
 @Module({
-  imports: [
-    ElasticsearchModule.register({
-      node: process.env.ELASTICSEARCH_URL || 'http://localhost:9200',
-      auth: {
-        username: process.env.ELASTICSEARCH_USERNAME || 'elastic',
-        password: process.env.ELASTICSEARCH_PASSWORD || 'changeme',
-      },
-      maxRetries: 5,
-      requestTimeout: 60000,
-      redaction: {
-        type: 'replace',
-        additionalKeys: ['password', 'secret'],
-      },
-    }),
-  ],
-  controllers: [LogsController],
-  providers: [provider, LogsProcessorService],
-  exports: [provider],
+  imports: [],
+  controllers: [LogsController, LogsConsumerController],
+  providers: [...providers],
+  exports: [...providers],
 })
 export class LogsModule {}

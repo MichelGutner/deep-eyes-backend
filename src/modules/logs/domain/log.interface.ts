@@ -41,7 +41,6 @@ export interface Entity {
 
 export interface UserInfo {
   id: string;
-  name?: string;
   ip?: string;
   device?: string;
 }
@@ -52,10 +51,6 @@ export interface ErrorInfo {
   message?: string;
   stack?: string | string[];
   cause?: unknown;
-  fingerprint?: string;
-  className?: string;
-  statusCode?: number;
-  statusText?: string;
 }
 
 export interface TraceInfo {
@@ -70,19 +65,12 @@ export interface RequestInfo {
   id: string;
   url: string;
   method: string;
-  headers: Record<string, string>;
   userAgent?: string;
-  size?: number;
-  queryParams?: Record<string, string>;
-  bodySize?: number;
   ip?: string;
   correlationId?: string;
   samplingPolicies?: Record<LogLevel, number>;
 }
 export interface ResponseInfo {
   statusCode?: number;
-  headers?: Record<string, string>;
-  bodySize?: number;
-  cached?: boolean;
   responseTimeMs?: number;
 }

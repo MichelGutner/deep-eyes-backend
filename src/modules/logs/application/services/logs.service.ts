@@ -1,22 +1,22 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { LogInputDto } from '../dtos';
 import { TracingServiceInterface } from '@/modules/tracing';
 import { Request } from 'express';
 import { LogsProcessorService } from './logs-processor.service';
 import { LogEntity } from '../../domain';
+import { ESServiceInterface } from '@/modules/elasticsearch';
 
 @Injectable()
 export class LogsService {
-  private readonly logger = new Logger(LogsService.name);
   private readonly tracer = trace.getTracer('deep-eyes-backend');
 
   constructor(
     @Inject('TracingService')
     private readonly tracingService: TracingServiceInterface,
-    private readonly elasticsearchService: ElasticsearchService,
+    @Inject('ESService')
+    private readonly esService: ESServiceInterface,
     private readonly logsProcessorService: LogsProcessorService,
   ) {}
 
@@ -30,7 +30,7 @@ export class LogsService {
     const logEntity = new LogEntity();
     logEntity.enrichWithBody(logInputData);
     logEntity.enrichWithRequest(req);
-    logEntity.enriqhWithResponse(req?.res);
+    logEntity.enrichWithResponse(req?.res);
     const logData = logEntity.getData();
 
     const enrichedLog = await this.tracingService.addTraceInfoToLog(logData);
@@ -42,34 +42,17 @@ export class LogsService {
   /**
    * Busca logs no Elasticsearch
    */
-  async searchLogs(query: any, index?: string, size: number = 100) {
-    return this.tracer.startActiveSpan('logs.search', async (span) => {
-      try {
-        span.setAttribute('logs.search.size', size);
-        span.setAttribute('logs.search.index', index || 'all');
-
-        const result = await this.elasticsearchService.search<LogEntity>({
-          index,
-          body: {
-            // query,
-            size,
-            sort: [{ timestamp: { order: 'desc' } }],
-          },
-        });
-
-        span.setStatus({ code: SpanStatusCode.OK });
-        return result;
-      } catch (error) {
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: error.message,
-        });
-        this.logger.error('Failed to search logs', error.stack);
-        throw error;
-      } finally {
-        span.end();
-      }
-    });
+  async searchLogs({ streamName }) {
+    try {
+      const documents = await this.esService.getStreamDocuments(streamName);
+      return {
+        total: documents.hits.total,
+        logs: documents.hits.hits.map((hit) => hit._source),
+      };
+    } catch (error) {
+      // this.logger.error(`Failed to search logs: ${error.message}`, error.stack);
+      // throw new Error('Failed to search logs. Please try again later.');
+    }
   }
 
   /**
@@ -166,76 +149,76 @@ export class LogsService {
   /**
    * Busca logs por trace ID
    */
-  async searchLogsByTraceId(traceId: string): Promise<any> {
-    const traceQuery = {
-      term: { 'trace.traceId': traceId },
-    };
-    return this.searchLogs(traceQuery);
-  }
+  // async searchLogsByTraceId(traceId: string): Promise<any> {
+  //   const traceQuery = {
+  //     term: { 'trace.traceId': traceId },
+  //   };
+  //   return this.searchLogs(traceQuery);
+  // }
 
   /**
    * Busca logs por request ID
    */
-  async searchLogsByRequestId(requestId: string): Promise<any> {
-    const requestQuery = {
-      term: { 'context.requestId': requestId },
-    };
-    return this.searchLogs(requestQuery);
-  }
+  // async searchLogsByRequestId(requestId: string): Promise<any> {
+  //   const requestQuery = {
+  //     term: { 'context.requestId': requestId },
+  //   };
+  //   return this.searchLogs(requestQuery);
+  // }
 
   /**
    * Obtém estatísticas dos logs
    */
-  async getLogStats(timeRange?: { start: string; end: string }): Promise<any> {
-    return this.tracer.startActiveSpan('logs.stats', async (span) => {
-      try {
-        const query: any = {};
-        if (timeRange) {
-          query.range = {
-            timestamp: {
-              gte: timeRange.start,
-              lte: timeRange.end,
-            },
-          };
-        }
+  // async getLogStats(timeRange?: { start: string; end: string }): Promise<any> {
+  //   return this.tracer.startActiveSpan('logs.stats', async (span) => {
+  //     try {
+  //       const query: any = {};
+  //       if (timeRange) {
+  //         query.range = {
+  //           timestamp: {
+  //             gte: timeRange.start,
+  //             lte: timeRange.end,
+  //           },
+  //         };
+  //       }
 
-        const result = await this.elasticsearchService.search({
-          index: 'logs-*',
-          body: {
-            query,
-            aggs: {
-              log_types: {
-                terms: { field: 'type' },
-              },
-              severity_levels: {
-                terms: { field: 'severityText' },
-              },
-              services: {
-                terms: { field: 'service.name' },
-              },
-              hourly_stats: {
-                date_histogram: {
-                  field: 'timestamp',
-                  calendar_interval: 'hour',
-                },
-              },
-            },
-            size: 0,
-          },
-        });
+  //       const result = await this.elasticsearchService.search({
+  //         index: 'logs-*',
+  //         body: {
+  //           query,
+  //           aggs: {
+  //             log_types: {
+  //               terms: { field: 'type' },
+  //             },
+  //             severity_levels: {
+  //               terms: { field: 'severityText' },
+  //             },
+  //             services: {
+  //               terms: { field: 'service.name' },
+  //             },
+  //             hourly_stats: {
+  //               date_histogram: {
+  //                 field: 'timestamp',
+  //                 calendar_interval: 'hour',
+  //               },
+  //             },
+  //           },
+  //           size: 0,
+  //         },
+  //       });
 
-        span.setStatus({ code: SpanStatusCode.OK });
-        return result;
-      } catch (error) {
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: error.message,
-        });
-        this.logger.error('Failed to get log stats', error.stack);
-        throw error;
-      } finally {
-        span.end();
-      }
-    });
-  }
+  //       span.setStatus({ code: SpanStatusCode.OK });
+  //       return result;
+  //     } catch (error) {
+  //       span.setStatus({
+  //         code: SpanStatusCode.ERROR,
+  //         message: error.message,
+  //       });
+  //       this.logger.error('Failed to get log stats', error.stack);
+  //       throw error;
+  //     } finally {
+  //       span.end();
+  //     }
+  //   });
+  // }
 }

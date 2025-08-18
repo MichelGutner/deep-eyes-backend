@@ -73,7 +73,6 @@ export class TelemetryManager implements OnModuleInit, OnModuleDestroy {
   }
 
   async emitBatch(events: LogEntity[]): Promise<void> {
-    console.log("🚀 ~ TelemetryManager ~ emitBatch ~ events:", events.length)
     if (this.isShuttingDown || !events.length) return;
     await this.exportToAll((exporter) => exporter.export(events));
   }
