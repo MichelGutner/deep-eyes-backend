@@ -240,7 +240,7 @@ interface HttpContext {
 | Crash nativo | `fatal` | ✅ `name: <exceção/sinal real>` | `error` | `tags: ['native-crash', ...]`, `fingerprint` |
 | Troca de tela | `info` | ❌ | `navigation` | `breadcrumb.data = { from, to }` |
 
-> **Nota (crash nativo):** o nome real da exceção/sinal (ex.: `NSInvalidArgumentException`, `SIGSEGV`, `java.lang.NullPointerException`) vai em `error.name` — não a string literal `'NativeCrash'` — para que o `fingerprint` agrupe por tipo real de crash em vez de colapsar tudo num único grupo. O tipo do evento (`exception` vs `signal`/JVM) fica em `tags` e em `metadata.nativeCrashType`. Sem breadcrumbs: o processo morreu antes de qualquer flush, então não há trilha da sessão anterior — apenas `device` e o stack nativo bruto (não simbolicado) em `error.stack`.
+> **Nota (crash nativo):** o nome real da exceção/sinal (ex.: `NSInvalidArgumentException`, `SIGSEGV`, `java.lang.NullPointerException`) vai em `error.name` — não a string literal `'NativeCrash'` — para que o `fingerprint` agrupe por tipo real de crash em vez de colapsar tudo num único grupo. O tipo do evento (`exception` vs `signal`/JVM) fica em `tags` e em `metadata.nativeCrashType`. Sem breadcrumbs: o processo morreu antes de qualquer flush, então não há trilha da sessão anterior — apenas `device` e o stack nativo bruto em `error.stack`. O backend simbolica esse stack na ingestão quando há símbolos enviados para a release — ver [Simbolicação de crashes nativos](#simbolicação-de-crashes-nativos-upload-de-símbolos).
 | Requisição HTTP erro | `warn`/`error` | opcional | `http` | `http.*` |
 | Requisição HTTP ok | `info` | ❌ | `http` | `http.*` |
 | Log manual | qualquer | opcional | `console` | — |
@@ -304,6 +304,143 @@ function generateFingerprint(errorName: string, topFrame?: StackFrame): string {
 ```
 
 Se o backend não receber `fingerprint`, ele deve calcular usando o mesmo algoritmo antes de indexar no Elasticsearch.
+
+---
+
+## Simbolicação de crashes nativos (upload de símbolos)
+
+O SDK manda o stack nativo como o dispositivo o viu: classes Java ofuscadas pelo R8 (`a.b.c(SourceFile:12)`), endereços de retorno no iOS e offsets dentro de `.so` no Android (`[rel 0x1d4e]`). Para virar `função (arquivo:linha)`, o backend precisa dos símbolos da build — enviados uma vez por release, no build de release / CI.
+
+Na ingestão (`POST /logs/batch`), para cada log com `error.stack`:
+
+| Plataforma | Frames | Símbolo usado | Ferramenta no servidor |
+|------------|--------|---------------|------------------------|
+| Android | Java/Kotlin (`a.b.c(SourceFile:12)`) e `error.name` | `mapping.txt` da `release` | nenhuma (retrace em TS) |
+| Android | NDK (`#00 pc … libapp.so [rel 0x…]`) | `.so` não-stripped da `release` + ABI | `llvm-symbolizer` |
+| iOS | linhas com endereço (`0x0000000102a4c123`), via `metadata.frameAddresses` + `metadata.images` | dSYM pelo UUID da imagem | `llvm-symbolizer` ou `atos` |
+
+Quando algo foi resolvido, o log é indexado com `error.stack` reescrito e:
+
+```jsonc
+"metadata": {
+  "symbolicated": true,
+  "symbolicatedWith": ["r8-mapping"],      // | "dsym" | "native-lib"
+  "rawStack": ["a.b.c(SourceFile:12)", …]  // stack original, como o SDK enviou
+}
+```
+
+É best-effort: sem símbolo para a release, ou sem `llvm-symbolizer`/`atos` no host, o stack fica exatamente como chegou e o log é aceito normalmente. O `fingerprint` não muda (é calculado no device a partir dos frames ofuscados, estáveis dentro de uma release).
+
+### Endpoints
+
+Todos exigem **Bearer token de usuário** (`POST /auth/login`) — não a `apiKey`: a `apiKey` vai embutida no binário do app, então não pode servir para sobrescrever símbolos. A aplicação precisa ser da organização do usuário.
+
+| Método | Rota | Multipart | Uso |
+|--------|------|-----------|-----|
+| `POST` | `/applications/:applicationId/symbols/android-mapping` | `file`, `release` | `mapping.txt` do R8/ProGuard |
+| `POST` | `/applications/:applicationId/symbols/native-lib` | `file`, `release`, `arch?`, `name?` | `.so` não-stripped (NDK) |
+| `POST` | `/applications/:applicationId/symbols/dsym` | `file` | `.dSYM` zipado (um ou vários) ou o arquivo DWARF puro — indexado pelo UUID, sem `release` |
+| `GET` | `/applications/:applicationId/symbols` | — | lista o que foi enviado |
+| `DELETE` | `/applications/:applicationId/symbols/:symbolId` | — | remove |
+
+Reenviar para a mesma chave (release / UUID / release+ABI+lib) substitui o arquivo anterior.
+
+> **`release` precisa ser idêntica à `release` que o SDK envia.** No app-entregador ela é `` `${CONFIG.package}@${CONFIG.version}` `` (`src/modules/observability/deepEyes.ts`), ex.: `com.husky@2.4.11` — não só o `versionName`.
+
+```bash
+export DEEP_EYES_URL=https://api.deepeyes.io
+export DEEP_EYES_APP_ID=<Application.id>
+export DEEP_EYES_TOKEN=$(curl -sS -X POST "$DEEP_EYES_URL/auth/login" \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"ci@empresa.com","password":"…"}' | jq -r .accessToken)
+```
+
+### Android — `mapping.txt` (app-entregador)
+
+O R8 só roda (e só gera `mapping.txt`) com `android.enableMinifyInReleaseBuilds=true` em `android/gradle.properties` — hoje o padrão do app-entregador é `false`, e nesse caso as classes não são ofuscadas e não há nada a enviar.
+
+```bash
+curl --fail -sS \
+  -H "Authorization: Bearer $DEEP_EYES_TOKEN" \
+  -F "release=com.husky@2.4.11" \
+  -F "file=@android/app/build/outputs/mapping/release/mapping.txt" \
+  "$DEEP_EYES_URL/applications/$DEEP_EYES_APP_ID/symbols/android-mapping"
+```
+
+Automático a cada `assembleRelease`/`bundleRelease`, em `android/app/build.gradle`:
+
+```groovy
+// Envia o mapping.txt ao Deep Eyes depois do R8. Pula silenciosamente sem DEEP_EYES_TOKEN.
+def deepEyesRelease = System.getenv('DEEP_EYES_RELEASE') ?: "com.husky@${android.defaultConfig.versionName}"
+
+tasks.register('uploadDeepEyesMapping', Exec) {
+    def mapping = layout.buildDirectory.file('outputs/mapping/release/mapping.txt').get().asFile
+    onlyIf { mapping.exists() && System.getenv('DEEP_EYES_TOKEN') }
+    commandLine 'curl', '--fail', '-sS',
+        '-H', "Authorization: Bearer ${System.getenv('DEEP_EYES_TOKEN')}",
+        '-F', "release=${deepEyesRelease}",
+        '-F', "file=@${mapping}",
+        "${System.getenv('DEEP_EYES_URL')}/applications/${System.getenv('DEEP_EYES_APP_ID')}/symbols/android-mapping"
+}
+
+afterEvaluate {
+    tasks.matching { it.name == 'minifyReleaseWithR8' }.configureEach { finalizedBy 'uploadDeepEyesMapping' }
+}
+```
+
+### Android — `.so` não-stripped (frames NDK, opcional)
+
+Os `.so` com debug info ficam antes do strip, um por ABI. `arch` aceita o nome da ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`) ou o nome do diretório que aparece no stack (`arm64`, `arm`); sem `arch`, o arquivo vale para qualquer ABI.
+
+```bash
+OUT=android/app/build/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib
+for abi in arm64-v8a armeabi-v7a; do
+  for so in "$OUT/$abi"/*.so; do
+    curl --fail -sS -H "Authorization: Bearer $DEEP_EYES_TOKEN" \
+      -F "release=com.husky@2.4.11" -F "arch=$abi" -F "file=@$so" \
+      "$DEEP_EYES_URL/applications/$DEEP_EYES_APP_ID/symbols/native-lib"
+  done
+done
+```
+
+Na prática, só vale enviar as libs do próprio app (as de terceiros como `libhermes.so`/`libreactnative.so` raramente vêm com debug info).
+
+### iOS — dSYM
+
+O Xcode gera dSYM em Release por padrão (`DEBUG_INFORMATION_FORMAT = dwarf-with-dsym`). Um zip pode conter vários `.dSYM` (app + frameworks); cada slice é indexado pelo UUID — o mesmo `metadata.images[].uuid` que o SDK envia —, então não há `release` aqui.
+
+```bash
+# Do .xcarchive gerado pelo Archive / fastlane gym:
+rm -f /tmp/dsyms.zip && (cd "build/Entregador.xcarchive/dSYMs" && zip -qr /tmp/dsyms.zip .)
+curl --fail -sS -H "Authorization: Bearer $DEEP_EYES_TOKEN" \
+  -F "file=@/tmp/dsyms.zip" \
+  "$DEEP_EYES_URL/applications/$DEEP_EYES_APP_ID/symbols/dsym"
+# → { "images": [{ "uuid": "F8632B069F223D8094E21BF430D9FE05", "arch": "arm64", "name": "Entregador" }, …] }
+```
+
+Ou como Run Script Build Phase (depois de "Embed Frameworks"), só em Release:
+
+```bash
+if [ "$CONFIGURATION" = "Release" ] && [ -n "$DEEP_EYES_TOKEN" ]; then
+  rm -f "$TEMP_DIR/dsyms.zip"
+  (cd "$DWARF_DSYM_FOLDER_PATH" && zip -qr "$TEMP_DIR/dsyms.zip" *.dSYM)
+  curl --fail -sS -H "Authorization: Bearer $DEEP_EYES_TOKEN" \
+    -F "file=@$TEMP_DIR/dsyms.zip" \
+    "$DEEP_EYES_URL/applications/$DEEP_EYES_APP_ID/symbols/dsym" || echo "warning: upload de dSYM falhou"
+fi
+```
+
+### Requisitos e configuração do servidor
+
+| Item | Detalhe |
+|------|---------|
+| `llvm-symbolizer` | Necessário para frames NDK; usado também para iOS quando presente (Linux: `apk add llvm` / `apt-get install llvm`; macOS: `brew install llvm`). Procurado no `PATH` (inclusive `llvm-symbolizer-NN`) ou em `LLVM_SYMBOLIZER_PATH`. |
+| `atos` | Fallback para iOS em hosts macOS com Xcode. |
+| `unzip` | Para dSYMs zipados (no macOS, `ditto` serve). Sem ele, envie o arquivo DWARF puro (`X.dSYM/Contents/Resources/DWARF/X`). |
+| `SYMBOLS_DIR` | Onde os arquivos ficam (padrão `./data/symbols`; o Postgres guarda só o índice, tabela `symbol_files`). Precisa ser um volume persistente em produção. |
+| `SYMBOLS_MAX_UPLOAD_MB` | Limite por upload (padrão `1024`). |
+
+Sem nenhuma das ferramentas, só a retrace de Java/Kotlin funciona (ela não depende de binário externo).
 
 ---
 

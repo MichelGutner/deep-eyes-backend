@@ -2,6 +2,7 @@ import './telemetry';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { TelemetryInterceptor } from './interceptors/telemetry.interceptor';
 import { Kafka } from 'kafkajs';
@@ -41,8 +42,10 @@ async function ensureKafkaTopics() {
 async function bootstrap() {
   await ensureKafkaTopics();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // SDK events carry runtime context (several KB each); Express' 100kb default rejects normal batches.
+  app.useBodyParser('json', { limit: '2mb' });
   app.enableCors({ origin: '*' });
   app.useGlobalInterceptors(new TelemetryInterceptor());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

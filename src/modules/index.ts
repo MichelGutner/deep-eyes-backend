@@ -17,3 +17,4 @@ export * from './incidents/incidents.module';
 export * from './custom-metrics/custom-metrics.module';
 export * from './dashboards/dashboards.module';
 export * from './settings/settings.module';
+export * from './symbolication';

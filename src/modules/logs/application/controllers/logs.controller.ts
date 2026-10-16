@@ -99,7 +99,7 @@ export class LogsController {
     }
 
     try {
-      const result = await this.logsService.batchIngest(body.batch, req);
+      const result = await this.logsService.batchIngest(body.batch, req, app.id);
       this.logger.debug(`Batch ingest: ${result.accepted} accepted, ${result.rejected} rejected`);
       return result;
     } catch (error) {

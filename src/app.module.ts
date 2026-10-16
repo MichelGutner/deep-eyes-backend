@@ -22,6 +22,7 @@ import {
   CustomMetricsModule,
   DashboardsModule,
   SettingsModule,
+  SymbolicationModule,
 } from './modules';
 import { LoggerModule } from './logger';
 import { TelemetryModule } from './modules/shared';
@@ -50,6 +51,7 @@ import { TelemetryModule } from './modules/shared';
     CustomMetricsModule,
     DashboardsModule,
     SettingsModule,
+    SymbolicationModule,
     TelemetryModule.forRoot({
       kafka: {
         brokers: process.env.KAFKA_BROKERS?.split(',') || ['localhost:9092'],

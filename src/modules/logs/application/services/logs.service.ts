@@ -7,6 +7,7 @@ import { Request } from 'express';
 import { LogsProcessorService } from './logs-processor.service';
 import { LogEntity } from '../../domain';
 import { ESServiceInterface, LogQueryFilters } from '@/modules/elasticsearch';
+import { SymbolicationService } from '@/modules/symbolication/application/services/symbolication.service';
 
 @Injectable()
 export class LogsService {
@@ -16,6 +17,7 @@ export class LogsService {
     @Inject('ESService')
     private readonly esService: ESServiceInterface,
     private readonly logsProcessorService: LogsProcessorService,
+    private readonly symbolicationService: SymbolicationService,
   ) {}
 
   async enqueueLog(logInputData: LogInputDto, req: Request): Promise<LogEntity> {
@@ -34,6 +36,7 @@ export class LogsService {
   async batchIngest(
     batch: LogInputDto[],
     req: Request,
+    applicationId?: string,
   ): Promise<BatchIngestResult> {
     let accepted = 0;
     const errors: string[] = [];
@@ -44,6 +47,10 @@ export class LogsService {
         logEntity.enrichWithBody(batch[i]);
         logEntity.enrichWithRequest(req);
         const logData = logEntity.getData();
+        if (applicationId) {
+          // Native crash frames → function + file:line from uploaded mapping/dSYM/.so (best-effort).
+          await this.symbolicationService.symbolicate(logData, applicationId);
+        }
         const enrichedLog = await this.tracingService.addTraceInfoToLog(logData);
         this.logsProcessorService.enqueueLog(enrichedLog);
         accepted++;

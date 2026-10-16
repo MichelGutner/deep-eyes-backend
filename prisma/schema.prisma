@@ -57,6 +57,7 @@ model Application {
   // Relations
   metrics         Metric[]
   traces          Trace[]
+  symbolFiles     SymbolFile[]
   organization_id String
   Organization    Organization? @relation(fields: [organization_id], references: [id])
 
@@ -242,7 +243,38 @@ model Trace {
   @@map("traces")
 }
 
+// Debug symbols uploaded at build time (R8 mapping, dSYM, unstripped .so) used to
+// symbolicate native crash stacks during ingestion. The file itself lives on disk
+// under SYMBOLS_DIR; this row is the index.
+model SymbolFile {
+  id             String         @id @default(uuid())
+  application_id String
+  type           SymbolFileType
+  // Lookup key, unique per application: mapping:<release> | dsym:<UUID> | so:<release>:<arch>:<name>
+  key            String
+  release        String?
+  debug_id       String? // iOS image UUID (uppercase hex, no dashes)
+  name           String? // dSYM image name / .so file name
+  arch           String?
+  path           String // relative to SYMBOLS_DIR
+  size           Int
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+
+  application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
+
+  @@unique([application_id, key])
+  @@index([application_id, type])
+  @@map("symbol_files")
+}
+
 // Enums
+enum SymbolFileType {
+  ANDROID_MAPPING
+  IOS_DSYM
+  ANDROID_NATIVE_LIB
+}
+
 enum MetricType {
   COUNTER
   GAUGE

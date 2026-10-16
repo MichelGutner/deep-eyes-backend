@@ -5,6 +5,7 @@ import { LogsProcessorService } from './services/logs-processor.service';
 import { LogsConsumerController } from './controllers/logs-consumer.controller';
 import { ElasticsearchModule } from '@/modules/elasticsearch';
 import { PrismaModule } from '@/modules/prisma';
+import { SymbolicationModule } from '@/modules/symbolication';
 
 const providers: Provider[] = [
   {
@@ -15,7 +16,7 @@ const providers: Provider[] = [
 ];
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, SymbolicationModule],
   controllers: [LogsController, LogsConsumerController],
   providers: [...providers],
   exports: [...providers],
