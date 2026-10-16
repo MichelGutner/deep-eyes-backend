@@ -1,13 +1,12 @@
 import { UserRole } from '@prisma/client';
-import { IsEmail, IsString, IsStrongPassword, IsEnum, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
 
 export class CreateUserDto {
   @IsEmail()
   email: string;
 
-  @IsStrongPassword({
-    minLength: 8,
-  })
+  @IsString()
+  @MinLength(8)
   password: string;
 
   @IsString()

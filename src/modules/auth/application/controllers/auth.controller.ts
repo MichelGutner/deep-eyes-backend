@@ -12,9 +12,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Public } from '../decorators/public.decorator';
 import { LoginInputDto } from '../dtos/login.dto';
 import { TokenInputDto } from '../dtos/token.dto';
 
+@Public()
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -27,14 +29,9 @@ export class AuthController {
 
   @Post('login')
   async login(@Body() body: LoginInputDto) {
-    const user = await this.userService.validateUserAuth(
-      body.email,
-      body.password,
-    );
-
-    if (!user) {
+    const user = await this.userService.validateUserAuth(body.email, body.password).catch(() => {
       throw new UnauthorizedException('Invalid email or password.');
-    }
+    });
 
     const payload = this.parserUserData(user);
 

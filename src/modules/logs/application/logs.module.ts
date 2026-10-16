@@ -1,9 +1,10 @@
-import { Global, Module, Provider } from '@nestjs/common';
+import { Module, Provider } from '@nestjs/common';
 import { LogsService } from './services/logs.service';
 import { LogsController } from './controllers/logs.controller';
 import { LogsProcessorService } from './services/logs-processor.service';
 import { LogsConsumerController } from './controllers/logs-consumer.controller';
-import { ElasticsearchModule, ESService } from '@/modules/elasticsearch';
+import { ElasticsearchModule } from '@/modules/elasticsearch';
+import { PrismaModule } from '@/modules/prisma';
 
 const providers: Provider[] = [
   {
@@ -14,7 +15,7 @@ const providers: Provider[] = [
 ];
 
 @Module({
-  imports: [],
+  imports: [PrismaModule],
   controllers: [LogsController, LogsConsumerController],
   providers: [...providers],
   exports: [...providers],

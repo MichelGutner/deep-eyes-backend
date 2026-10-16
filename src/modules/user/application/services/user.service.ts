@@ -18,12 +18,12 @@ export class UserService implements UserServiceInterface {
 
   async validateUserAuth(email: string, password: string) {
     const user = await this.userRepository.findByEmail(email);
-    const validPassword = compareEncrypts(password, user?.password_hash ?? '');
     if (!user) {
-      throw new BadRequestException('User not found.');
+      throw new BadRequestException('Invalid email or password.');
     }
+    const validPassword = compareEncrypts(password, user.password_hash ?? '');
     if (!validPassword) {
-      throw new ConflictException('Invalid email or password.');
+      throw new BadRequestException('Invalid email or password.');
     }
     const { password_hash, ...userWithoutPassword } = user;
     return userWithoutPassword;

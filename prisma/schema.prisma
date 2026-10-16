@@ -48,6 +48,7 @@ model Organization {
 model Application {
   id          String   @id @default(uuid())
   name        String   @unique
+  apiKey      String   @unique @default(uuid())
   version     String?
   environment String   @default("development")
   created_at  DateTime @default(now())
@@ -60,6 +61,140 @@ model Application {
   Organization    Organization? @relation(fields: [organization_id], references: [id])
 
   @@map("applications")
+}
+
+// Alert entity
+model Alert {
+  id         String   @id @default(uuid())
+  type       String
+  title      String
+  message    String
+  severity   String   @default("low")  // low, medium, high, critical
+  status     String   @default("active") // active, acknowledged, resolved
+  source     String
+  assignedTo String?
+  tags       Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("alerts")
+}
+
+// AlertRule entity
+model AlertRule {
+  id            String   @id @default(uuid())
+  name          String
+  condition     String
+  threshold     Float
+  metric        String
+  severity      String   @default("low")
+  enabled       Boolean  @default(true)
+  notifications Json     // { email: bool, slack: bool, webhook: bool }
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("alert_rules")
+}
+
+// Incident entity
+model Incident {
+  id               String            @id @default(uuid())
+  title            String
+  description      String
+  severity         String            @default("low")  // low, medium, high, critical
+  status           String            @default("open") // open, investigating, mitigated, resolved, closed
+  type             String            // performance, security, availability, data, infrastructure
+  assignee         String?
+  reporter         String
+  affectedServices Json              @default("[]")
+  impact           String
+  rootCause        String?
+  resolution       String?
+  tags             Json?
+  automationStatus String            @default("manual") // manual, automated, semi_automated
+  resolvedAt       DateTime?
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+  comments         IncidentComment[]
+
+  @@map("incidents")
+}
+
+// IncidentComment entity
+model IncidentComment {
+  id          String   @id @default(uuid())
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  userId      String
+  description String
+  created_at  DateTime @default(now())
+
+  @@map("incident_comments")
+}
+
+// CustomMetric entity
+model CustomMetric {
+  id             String   @id @default(uuid())
+  name           String
+  description    String?
+  type           String   // counter, gauge, histogram, summary
+  unit           String?
+  tags           Json?
+  query          String   // Elasticsearch query string
+  alertThreshold Float?
+  alertCondition String?  // above, below, equals
+  chartType      String?  // line, bar, pie
+  isActive       Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  @@map("custom_metrics")
+}
+
+// Dashboard entity
+model Dashboard {
+  id         String   @id @default(uuid())
+  name       String
+  isPublic   Boolean  @default(false)
+  shareToken String?  @unique
+  widgets    Widget[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("dashboards")
+}
+
+// Widget entity
+model Widget {
+  id          String    @id @default(uuid())
+  dashboardId String
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  type        String
+  title       String
+  config      Json      @default("{}")
+  posX        Int       @default(0)
+  posY        Int       @default(0)
+  width       Int       @default(4)
+  height      Int       @default(3)
+  isVisible   Boolean   @default(true)
+  isLocked    Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@map("widgets")
+}
+
+// OrganizationSettings entity
+model OrganizationSettings {
+  id             String @id @default(uuid())
+  organizationId String @unique
+  notifications  Json   @default("{}")
+  security       Json   @default("{}")
+  display        Json   @default("{}")
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  @@map("organization_settings")
 }
 
 // Metric entity - TimescaleDB hypertable for time-series metrics

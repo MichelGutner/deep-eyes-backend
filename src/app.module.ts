@@ -1,4 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { JwtAuthGuard } from './modules/auth/application/guards/jwt-auth.guard';
 import {
   AuthModule,
   LogsModule,
@@ -8,6 +11,17 @@ import {
   OrganizationModule,
   ResilienceModule,
   ElasticsearchModule,
+  HealthModule,
+  PerformanceModule,
+  RealtimeModule,
+  SecurityModule,
+  ApplicationsModule,
+  ErrorsModule,
+  AlertsModule,
+  IncidentsModule,
+  CustomMetricsModule,
+  DashboardsModule,
+  SettingsModule,
 } from './modules';
 import { LoggerModule } from './logger';
 import { TelemetryModule } from './modules/shared';
@@ -15,6 +29,7 @@ import { TelemetryModule } from './modules/shared';
 @Module({
   controllers: [],
   imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     ElasticsearchModule,
     TracingModule,
@@ -24,6 +39,17 @@ import { TelemetryModule } from './modules/shared';
     UserModule,
     OrganizationModule,
     ResilienceModule,
+    HealthModule,
+    PerformanceModule,
+    RealtimeModule,
+    SecurityModule,
+    ApplicationsModule,
+    ErrorsModule,
+    AlertsModule,
+    IncidentsModule,
+    CustomMetricsModule,
+    DashboardsModule,
+    SettingsModule,
     TelemetryModule.forRoot({
       kafka: {
         brokers: process.env.KAFKA_BROKERS?.split(',') || ['localhost:9092'],
@@ -32,6 +58,9 @@ import { TelemetryModule } from './modules/shared';
       },
     }),
   ],
-  providers: [],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+  ],
 })
 export class AppModule {}

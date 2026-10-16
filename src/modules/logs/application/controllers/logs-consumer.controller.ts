@@ -28,8 +28,16 @@ export class LogsConsumerController {
     const { offset, key, value } = context.getMessage();
 
     try {
-      const document: LogEntity =
+      const document: LogEntity & { '@timestamp'?: string } =
         typeof value === 'string' ? JSON.parse(value) : value;
+
+      // logs-test-development is a data stream, which requires "@timestamp" on every
+      // document — LogEntity only carries "timestamp" (the wire-contract field name),
+      // so mirror it here rather than leaking an ES-specific field into the domain model.
+      if (!document['@timestamp'] && document.timestamp) {
+        document['@timestamp'] = document.timestamp;
+      }
+
       const result = await this.esService.indexDocument<LogEntity>(
         'logs-test-development', // replace with entity name from document
         document,

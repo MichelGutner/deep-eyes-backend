@@ -1,16 +1,25 @@
 import {
   Controller,
   Post,
+  Get,
+  Param,
   Body,
+  Query,
   Req,
   Inject,
   ServiceUnavailableException,
+  UnauthorizedException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
+import { Public } from '@/modules/auth/application/decorators/public.decorator';
 import { LogsService } from '../services/logs.service';
-import { LogInputDto } from '../dtos';
+import { LogInputDto, BatchLogDto } from '../dtos';
 import { MaxRetriesExceededError } from '@/modules/resilience/application/services/retry-police.service';
 import { Logger } from '@/logger/application';
+import { PrismaService, PRISMA_SERVICE } from '@/modules/prisma';
 
 @Controller('logs')
 export class LogsController {
@@ -19,8 +28,44 @@ export class LogsController {
     private readonly logsService: LogsService,
     @Inject('Logger')
     private readonly logger: Logger,
+    @Inject(PRISMA_SERVICE)
+    private readonly prisma: PrismaService,
   ) {}
 
+  @Get()
+  async getLogs(
+    @Query('level') level?: string,
+    @Query('platform') platform?: string,
+    @Query('environment') environment?: string,
+    @Query('app') app?: string,
+    @Query('search') search?: string,
+    @Query('timeRange') timeRange?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.logsService.getLogs({
+      level,
+      platform,
+      environment,
+      app,
+      search,
+      timeRange,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
+  }
+
+  @Get('metrics')
+  async getMetrics(@Query('timeRange') timeRange?: string) {
+    return this.logsService.getLogMetrics(timeRange);
+  }
+
+  @Get(':id')
+  async getLogById(@Param('id') id: string) {
+    return this.logsService.getLogById(id);
+  }
+
+  @Public()
   @Post('application')
   async enqueueLog(@Body() body: LogInputDto, @Req() req: Request) {
     try {
@@ -29,19 +74,41 @@ export class LogsController {
       return { success: true, logId: log.id };
     } catch (error) {
       this.logger.error(`Failed to enqueue log: ${error.message}`, error.stack);
-
       if (error instanceof MaxRetriesExceededError) {
         throw new ServiceUnavailableException(
           'Logging service temporarily unavailable. Please try again later.',
         );
       }
-
       throw new ServiceUnavailableException(
         'Failed to process log. Please try again later.',
       );
     }
   }
 
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @Post('batch')
+  @HttpCode(HttpStatus.OK)
+  async batchIngest(@Body() body: BatchLogDto, @Req() req: Request) {
+    const app = await this.prisma.application.findUnique({
+      where: { apiKey: body.apiKey } as any,
+    });
+
+    if (!app) {
+      throw new UnauthorizedException('Invalid API Key');
+    }
+
+    try {
+      const result = await this.logsService.batchIngest(body.batch, req);
+      this.logger.debug(`Batch ingest: ${result.accepted} accepted, ${result.rejected} rejected`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Batch ingest failed: ${error.message}`, error.stack);
+      throw new ServiceUnavailableException('Batch ingest failed. Please try again later.');
+    }
+  }
+
+  @Public()
   @Post('search')
   async searchLogs(@Body() body: { streamName: string }) {
     try {
@@ -54,38 +121,4 @@ export class LogsController {
       );
     }
   }
-
-  // @Post('performance')
-  // async createPerformanceLog(
-  //   @Body()
-  //   body: {
-  //     operation: string;
-  //     component: string;
-  //     duration: number;
-  //     attributes?: Record<string, any>;
-  //   },
-  // ) {
-  //   await this.logsService.logPerformance(
-  //     body.operation,
-  //     body.component,
-  //     body.duration,
-  //     body.attributes || {},
-  //   );
-  //   return { status: 'success', message: 'Performance log created' };
-  // }
-
-  // @Post('audit')
-  // async createAuditLog(
-  //   @Body()
-  //   body: {
-  //     action: string;
-  //     resource: {
-  //       type: string;
-  //       id: string;
-  //       name?: string;
-  //     };
-  //     user: {
-  //       id: string;
-  //       name?: string;
-  //       email?: string;
 }
